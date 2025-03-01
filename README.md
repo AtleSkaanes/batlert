@@ -34,4 +34,4 @@ exec-once = batlert
 
 Now whenever the battery level gets critical, you will see this popup:
 
-![./images/popup.png]
+![Popup example](images/popup.png)
