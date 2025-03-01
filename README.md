@@ -6,7 +6,13 @@ I am not sure on how many devices, DE's, or WM's it will run, I have only tested
 
 ### Installing
 
-You can install it by cloning the repo locally, and compile it
+You can install the package with `cargo install`
+
+```sh
+$ cargo install batlert
+```
+
+or you can clone the repo locally, and compile it
 
 ```sh
 $ git clone https://github.com/AtleSkaanes/batlert
