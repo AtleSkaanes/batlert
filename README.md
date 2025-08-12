@@ -41,3 +41,11 @@ exec-once = batlert
 Now whenever the battery level gets critical, you will see this popup:
 
 ![Popup example](images/popup.png)
+
+## Credits
+
+The sound effect used by batlert has the following license:
+
+**COPYRIGHT:** Ivica Bukvic
+**URL:** http://gnome-look.org/content/show.php/%22Borealis%22+sound+theme?content=12584
+**LICENSE:** CC-BY-SA
