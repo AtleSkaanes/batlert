@@ -2,7 +2,10 @@ mod cli;
 mod popup;
 use clap::Parser;
 use popup::Choice;
-use rodio::{Decoder, OutputStream, Sink};
+use rodio::{
+    cpal::{FromSample, StreamConfig},
+    Decoder, OutputStream, OutputStreamBuilder, Sink,
+};
 use std::{
     fs::OpenOptions,
     io::{BufReader, Cursor, Read, Seek},
@@ -115,8 +118,8 @@ fn play_sound(args: &cli::CliArgs) {
     std::thread::spawn(move || {
         let alert_sound_default = include_bytes!("../sounds/ping.oga");
 
-        let (_stream, stream_handle) = OutputStream::try_default().unwrap();
-        let sink = Sink::try_new(&stream_handle).unwrap();
+        let stream_handle = OutputStreamBuilder::open_default_stream().unwrap();
+        let sink = Sink::connect_new(stream_handle.mixer());
 
         match sound_path {
             Some(path) => {
