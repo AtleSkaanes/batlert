@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::cli;
+use crate::{cli, log};
 use gtk4::{glib, prelude::*, Application, ApplicationWindow, Window};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
@@ -59,7 +59,10 @@ async fn dialog<W: IsA<Window>>(window: W, answer_buf: Rc<RefCell<Option<Choice>
     let answer = question_dialog.choose_future(Some(&window)).await;
 
     *answer_buf.borrow_mut() = match answer {
-        Ok(idx) => Some(Choice::try_from(idx).unwrap()),
+        Ok(idx) => Some(Choice::try_from(idx).unwrap_or_else(|_| {
+            log::errf!("Answer index '{}' was out of range", idx);
+            Choice::Ok
+        })),
         Err(_) => None,
     };
     window.destroy();

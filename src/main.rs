@@ -1,11 +1,9 @@
 mod cli;
+mod log;
 mod popup;
 use clap::Parser;
 use popup::Choice;
-use rodio::{
-    cpal::{FromSample, StreamConfig},
-    Decoder, OutputStream, OutputStreamBuilder, Sink,
-};
+use rodio::{Decoder, OutputStreamBuilder, Sink};
 use std::{
     fs::OpenOptions,
     io::{BufReader, Cursor, Read, Seek},
@@ -24,16 +22,14 @@ fn main() {
     let mut battery_file = match OpenOptions::new().read(true).open(battery_path) {
         Ok(f) => f,
         Err(_) => {
-            eprintln!("[ERROR]: Couldn't find battery {}", args.battery);
-            std::process::exit(1);
+            log::fatalf!("Couldn't find battery: {}", args.battery);
         }
     };
 
-    let mut status_file = match OpenOptions::new().read(true).open(status_path) {
+    let mut status_file = match OpenOptions::new().read(true).open(&status_path) {
         Ok(f) => f,
         Err(_) => {
-            eprintln!("[ERROR]: Couldn't read battery status");
-            std::process::exit(1);
+            log::fatal("Coulnd't read battery status");
         }
     };
 
@@ -47,14 +43,16 @@ fn main() {
         match battery_file.read_to_string(&mut cap_buf) {
             Ok(_) => {}
             Err(e) => {
-                eprintln!("[ERROR]: Failed to read battery capacity.\nDetails: {}", e);
+                log::errf!("Failed to read battery capacity: {}", e);
             }
         };
         // Rewind the starting read position to the start of the file
-        battery_file.rewind().unwrap();
+        battery_file.rewind().unwrap_or_else(|e| {
+            log::errf!("Failed to rewind file '{}': {}", battery_path.display(), e)
+        });
 
         let Ok(pct) = cap_buf.trim().parse::<u32>() else {
-            eprintln!("[ERROR]: {:?} does not hold a whole number", battery_path);
+            log::errf!("{:?} does not hold a whole number", battery_path);
             continue;
         };
 
@@ -62,11 +60,14 @@ fn main() {
         match status_file.read_to_string(&mut status_buf) {
             Ok(_) => {}
             Err(e) => {
-                eprintln!("[ERROR]: Failed to read battery status.\nDetails: {}", e);
+                log::errf!("Failed to read battery status.\nDetails: {}", e);
+                continue;
             }
         };
         // Rewind the starting read position to the start of the file
-        status_file.rewind().unwrap();
+        status_file
+            .rewind()
+            .unwrap_or_else(|e| log::errf!("Failed to rewind file '{}': {}", status_path, e));
 
         if status_buf.trim() != "Discharging" {
             has_been_called = false;
@@ -97,15 +98,15 @@ fn evaluate_choice(answer: Option<Choice>, args: &cli::CliArgs) {
 
     match Command::new("sh").arg("-c").arg(cmd.clone()).output() {
         Ok(out) => {
-            println!(
-                "command \"{}\" evaluates to:\n{}",
+            log::statusf!(
+                "Command \"{}\" evaluates to:\n====\n{}\n====",
                 cmd,
                 String::from_utf8(out.stdout).unwrap_or_default()
             )
         }
         Err(e) => {
-            eprintln!(
-                "[ERROR]: Failed to run command \"{}\". Error details: {}",
+            log::errf!(
+                "Failed to run command \"{}\". Error details: {}",
                 cmd.clone(),
                 e
             );
@@ -118,7 +119,14 @@ fn play_sound(args: &cli::CliArgs) {
     std::thread::spawn(move || {
         let alert_sound_default = include_bytes!("../sounds/ping.oga");
 
-        let stream_handle = OutputStreamBuilder::open_default_stream().unwrap();
+        let stream_handle = match OutputStreamBuilder::open_default_stream() {
+            Ok(stream) => stream,
+            Err(e) => {
+                log::errf!("Failed to open audio stream: {}", e);
+                return;
+            }
+        };
+
         let sink = Sink::connect_new(stream_handle.mixer());
 
         match sound_path {
@@ -128,17 +136,29 @@ fn play_sound(args: &cli::CliArgs) {
                     return;
                 }
                 let Ok(file) = OpenOptions::new().read(true).open(path.clone()) else {
-                    eprintln!("[ERROR]: Sound file at {} not found", &path);
+                    log::errf!("Sound file at '{}' not found", &path);
                     return;
                 };
 
                 let buf = BufReader::new(file);
-                let source = Decoder::new(buf).unwrap();
+                let source = match Decoder::new(buf) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        log::errf!("Failed to decode sound file at '{}': {}", &path, e);
+                        return;
+                    }
+                };
                 sink.append(source);
             }
             None => {
                 let buf = BufReader::new(Cursor::new(alert_sound_default));
-                let source = Decoder::new(buf).unwrap();
+                let source = match Decoder::new(buf) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        log::errf!("Failed to decode default sound: {}", e);
+                        return;
+                    }
+                };
                 sink.append(source);
             }
         };
