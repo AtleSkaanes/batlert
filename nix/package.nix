@@ -23,7 +23,6 @@ rustPlatform.buildRustPackage {
     gtk4.dev
     gtk4-layer-shell.dev
     pango.dev
-    glibtool.lib
     gobject-introspection.dev
     cairo.dev
     gdk-pixbuf
