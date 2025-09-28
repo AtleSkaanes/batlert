@@ -12,6 +12,6 @@
     in
     {
       formatter.x86_64-linux = pkgs.nixfmt-rfc-style;
-      packages.x86_64-linux.default = pkgs.callPackage ./nix/package.nix {};
+      packages.x86_64-linux.default = pkgs.callPackage ./nix/package.nix { };
     };
 }
